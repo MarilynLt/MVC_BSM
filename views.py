@@ -1,10 +1,15 @@
 import tkinter as tk
-from datetime import datetime
 from tkinter import messagebox
 from tkinter import ttk
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.backends.backend_pdf import PdfPages
+from pandastable import Table
 
-class App(tk.Tk):
+
+class Root(tk.Tk):
     """
     Black and Scholes model GUI
     """
@@ -13,13 +18,21 @@ class App(tk.Tk):
         # main setup
         super().__init__()
         self.title("Black-Scholes-Merton pricer")
-        self.iconbitmap('logo.ico')
+        self.iconbitmap("logo.ico")
         self.geometry("525x505")
         self.minsize(525, 505)
 
         # widgets
         self.minor_frame = Minor(self)
-        self.main_frame = Major(self)
+        self.major_frame = Major(self)
+
+
+class Window(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.focus_force()  # put the focus on the new window
+        self.title("BSM-Portfolio")
+        self.iconbitmap("logo.ico")
 
 
 class Minor(ttk.Frame):
@@ -29,11 +42,12 @@ class Minor(ttk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.configure(relief='ridge')
+        self.configure(relief="ridge")
         self.grid(row=0, column=0, sticky="nsew")
 
-        # controller
-        self.controller = None
+        # Option status
+        self.lbl_val = None
+        self.lbl_status = None
 
         # Widgets
 
@@ -50,130 +64,90 @@ class Minor(ttk.Frame):
         self.ent_strike = ttk.Entry(self, width=8)
         self.ent_strike.grid(row=2, column=1, padx=1, pady=3)
 
-        self.lbl_spot = ttk.Label(self, text='Spot:')
+        self.lbl_spot = ttk.Label(self, text="Spot:")
         self.lbl_spot.grid(row=3, column=0, padx=1, pady=1)
         self.ent_spot = ttk.Entry(self, width=8)
         self.ent_spot.grid(row=3, column=1, padx=1, pady=3)
 
-        self.lbl_maturity = ttk.Label(self, text='maturity date:')
+        self.lbl_maturity = ttk.Label(self, text="maturity date:")
         self.lbl_maturity.grid(row=4, column=0, padx=1, pady=1)
         self.ent_maturity = ttk.Entry(self, width=10)
         self.ent_maturity.grid(row=4, column=1, padx=1, pady=3)
 
-        self.lbl_vol = ttk.Label(self, text='volatility:')
+        self.lbl_vol = ttk.Label(self, text="volatility:")
         self.lbl_vol.grid(row=5, column=0, padx=1, pady=1)
         self.ent_vol = ttk.Entry(self, width=8)
         self.ent_vol.grid(row=5, column=1, padx=1, pady=3)
 
-        self.lbl = ttk.Label(self, text='Optional (in %)')
+        self.lbl = ttk.Label(self, text="Optional (in %)")
         self.lbl.grid(row=6, column=0, columnspan=2, pady=18)
 
-        self.lbl_rf = ttk.Label(self, text='risk free rate:')
+        self.lbl_rf = ttk.Label(self, text="risk free rate:")
         self.lbl_rf.grid(row=7, column=0, padx=1, pady=1)
         self.ent_rf = ttk.Entry(self, width=8)
         self.ent_rf.grid(row=7, column=1, padx=1, pady=3)
 
-        self.lbl_div = ttk.Label(self, text='dividend yield:')
+        self.lbl_div = ttk.Label(self, text="dividend yield:")
         self.lbl_div.grid(row=8, column=0, padx=2, pady=1)
         self.ent_div = ttk.Entry(self, width=8)
         self.ent_div.grid(row=8, column=1, padx=1, pady=3)
 
-        self.btn_compute = ttk.Button(self, text='Compute')
+        self.btn_compute = ttk.Button(self, text="Compute")
         self.btn_compute.grid(row=9, column=0, columnspan=2, padx=7, pady=22)
 
-        self.label_result = ttk.Label(self, text='Result:')
+        self.label_result = ttk.Label(self, text="Result:")
         self.label_result.grid(row=10, column=0, columnspan=2)
 
-        self.label_price = ttk.Label(self, text='Price:')
+        self.label_price = ttk.Label(self, text="Price:")
         self.label_price.grid(row=12, column=0)
         self.ent_price = ttk.Entry(self, width=8)
         self.ent_price.grid(row=12, column=1, pady=2)
 
-        self.label_delta = ttk.Label(self, text='Delta:')
+        self.label_delta = ttk.Label(self, text="Delta:")
         self.label_delta.grid(row=11, column=2)
         self.ent_delta = ttk.Entry(self, width=8)
         self.ent_delta.grid(row=11, column=3, pady=2)
 
-        self.label_gamma = ttk.Label(self, text='Gamma:')
+        self.label_gamma = ttk.Label(self, text="Gamma:")
         self.label_gamma.grid(row=12, column=2)
         self.ent_gamma = ttk.Entry(self, width=8)
         self.ent_gamma.grid(row=12, column=3, pady=2)
 
-        self.label_vega = ttk.Label(self, text='Vega:')
+        self.label_vega = ttk.Label(self, text="Vega:")
         self.label_vega.grid(row=13, column=2)
         self.ent_vega = ttk.Entry(self, width=8)
         self.ent_vega.grid(row=13, column=3, pady=2)
 
-        self.label_theta = ttk.Label(self, text='Theta:')
+        self.label_theta = ttk.Label(self, text="Theta:")
         self.label_theta.grid(row=14, column=2)
         self.ent_theta = ttk.Entry(self, width=8)
         self.ent_theta.grid(row=14, column=3, pady=2)
 
-        self.var1 = tk.IntVar()
+        self.var1 = tk.BooleanVar()
         self.chk_ticker_ent = ttk.Entry(self, width=7)
         self.chk_ticker_ent.grid(row=3, column=3)
-        self.chk_ticker_lbl = ttk.Label(self, text='Ticker:')
+        self.chk_ticker_lbl = ttk.Label(self, text="Ticker:")
         self.chk_ticker_lbl.grid(row=3, column=2)
-        self.chk_ticker = ttk.Checkbutton(self, text='Download spot', variable=self.var1,
-                                          onvalue=1, offvalue=0)
+        self.chk_ticker = ttk.Checkbutton(
+            self, text="Download spot", variable=self.var1, onvalue=True, offvalue=False
+        )
         self.chk_ticker.grid(row=2, column=2, columnspan=2, padx=40, sticky="nsew")
-
-        # Option status
-        self.lbl_status = ttk.Label(self, text="")
-        self.lbl_val = ttk.Label(self, text="")
-        self.lbl_status.grid(row=5, column=2, columnspan=2, pady=2)
-        self.lbl_val.grid(row=4, column=2, columnspan=2, pady=2)
-
-    def set_controller(self, controller):
-        """
-        Set the controller
-        :param controller:
-        :return:
-        """
-        self.controller = controller
 
     @staticmethod
     def error_msg(text: str):
         messagebox.showerror("showerror", str(text))
 
-    # @staticmethod
-    # def update_view(param, value):
-    #     param.delete(0, tk.END)
-    #     param.insert(0, str(value))
-
-    def compute_button_clicked(self):
-        """
-        Handle button click event
-        :return:
-        """
-        if self.controller:
-            self.controller.computation(self.ent_type.get().upper(), self.ent_strike.get(), self.ent_spot.get(),
-                                        self.ent_maturity.get(), self.ent_vol.get(), self.ent_rf.get(),
-                                        self.ent_div.get())
-
-    def update_option(self, value):
-        self.ent_price.delete(0, tk.END)
-        self.ent_price.insert(0, str(value))
-
-        self.ent_delta.delete(0, tk.END)
-        self.ent_delta.insert(0, str(delta))
-
-        self.ent_gamma.delete(0, tk.END)
-        self.ent_gamma.insert(0, str(gamma))
-
-        self.ent_vega.delete(0, tk.END)
-        self.ent_vega.insert(0, str(vega))
-
-        self.ent_theta.delete(0, tk.END)
-        self.ent_theta.insert(0, str(theta))
-
-    def download_box_checked(self):
-        """
-        Handle download click event
-        :return:
-        """
-        if self.controller:
-            self.controller.download()
+    def update_status(self, status: str, value):
+        self.lbl_status = ttk.Label(
+            self, text=status, foreground=("red" if len(status) > 12 else "green")
+        )
+        self.lbl_val = ttk.Label(
+            self,
+            text=f"Intrinsic value: {value}",
+            foreground=("red" if len(status) > 12 else "green"),
+        )
+        self.lbl_status.grid(row=5, column=2, columnspan=2, pady=2)
+        self.lbl_val.grid(row=4, column=2, columnspan=2, pady=2)
 
 
 class Major(ttk.Frame):
@@ -183,31 +157,129 @@ class Major(ttk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.configure(relief='ridge')
+        self.configure(relief="ridge")
         self.grid(row=0, column=1, sticky="nsew")
-
-        # controller
-        self.controller = None
 
         # Widgets
         self.lbl_title = ttk.Label(self, text="BSM model on random Portfolio")
         self.lbl_title.grid(row=0, column=1, padx=5, pady=25, columnspan=3)
 
-        self.btn_run = ttk.Button(self, text='Run')
+        self.btn_run = ttk.Button(self, text="Run")
         self.btn_run.grid(row=5, column=1, columnspan=2, padx=7, pady=22)
 
-        self.var2 = tk.IntVar()
-        self.chk_report = ttk.Checkbutton(self, text="Export to Excel", variable=self.var2,
-                                          onvalue=1, offvalue=0)
-        self.chk_report.grid(row=6, column=1, columnspan=2, padx=7, pady=20, sticky='nsew')
+        self.var2 = tk.BooleanVar()
+        self.chk_report = ttk.Checkbutton(
+            self,
+            text="Export to Excel",
+            variable=self.var2,
+            onvalue=True,
+            offvalue=False,
+        )
+        self.chk_report.grid(
+            row=6, column=1, columnspan=2, padx=7, pady=20, sticky="nsew"
+        )
 
         self.btn_chart = ttk.Button(self, text="Generate Options' chart")
         self.btn_chart.grid(row=7, column=1, columnspan=2, padx=7, pady=20)
 
-    def set_controller(self, controller):
+    @staticmethod
+    def info_msg(msg: str):
+        messagebox.showinfo("Info", msg)
+
+    @staticmethod
+    def option_chart(model):
+        with PdfPages("Options_graph.pdf") as pdf:
+            with plt.style.context("seaborn-v0_8-darkgrid"):
+                spot = np.arange(1, 150)
+
+                # Greek plot
+
+                fig, axes = plt.subplots(5, 1, figsize=(10, 25))
+                fig.suptitle("Greeks", ha="center", fontweight="bold", fontsize=15)
+                fig.tight_layout(pad=7.0)
+                strike = [63, 87, 124]
+
+                for s in strike:
+                    del_call = [
+                        model(float(s), float(x), 5.0, 0.1).delta("CALL") for x in spot
+                    ]
+                    del_put = [
+                        model(float(s), float(x), 5.0, 0.1).delta("PUT") for x in spot
+                    ]
+                    axes[0].plot(
+                        del_call, linestyle="--", label=("Delta Call K=%s" % s)
+                    )
+                    axes[0].plot(del_put, label=("Delta Put K=%s" % s))
+
+                axes[0].set_ylabel("Delta")
+                axes[0].legend()
+
+                for s in strike:
+                    gam = [model(float(s), float(x), 5.0, 0.1).gamma() for x in spot]
+                    axes[1].plot(gam, linestyle="--", label=("Options Gamma K=%s" % s))
+
+                axes[1].set_ylabel("Gamma")
+                axes[1].legend()
+
+                for s in strike:
+                    veg = [model(float(s), float(x), 5.0, 0.1).vega() for x in spot]
+                    axes[2].plot(veg, label=("Options Vega K=%s" % s))
+
+                axes[2].set_ylabel("Vega")
+                axes[2].set_title("Volatility = 0.1 ")
+                axes[2].legend()
+
+                for s in strike:
+                    theta_call = [
+                        model(float(s), float(x), 5.0, 0.1).theta("CALL") for x in spot
+                    ]
+                    theta_put = [
+                        model(float(s), float(x), 5.0, 0.1).theta("PUT") for x in spot
+                    ]
+                    axes[3].plot(
+                        theta_call, linestyle="--", label=("Theta Call K=%s" % s)
+                    )
+                    axes[3].plot(theta_put, label=("Theta Put K=%s" % s))
+
+                axes[3].set_ylabel("Theta")
+                axes[3].set_title("Maturity = 5 years")
+                axes[3].legend()
+
+                # Option plot
+
+                call_val = [model(87.0, float(x), 1.0, 0.5).bsm("CALL") for x in spot]
+                put_val = [model(87.0, float(x), 1.0, 0.5).bsm("PUT") for x in spot]
+
+                axes[4].set_title(
+                    f"Change in option value with stock price"
+                    f"\n \n Strike: 87, t: 1 an, sigma: 0.5, r: 5%, q: 4%",
+                    fontweight="bold",
+                )
+                axes[4].set_xlabel("Stock Price")
+                axes[4].set_ylabel("Option price")
+                axes[4].plot(spot, call_val, color="green", label="Call")
+                axes[4].plot(spot, put_val, color="blue", label="Put")
+                axes[4].legend()
+
+            pdf.savefig()
+            plt.close()
+
+    def manage_pdtable(self, data: pd.DataFrame):
         """
-        Set the controller
-        :param controller:
-        :return:
+        Create a new window and display data in an Excel way , plot are feasible by using the plot button on the new
+        interface
+
+        Parameters
+        ----------
+        data : Dataframe the need to be displayed in the new window
+        -------
         """
-        self.controller = controller
+        window = Window(self)
+
+        frame = tk.Frame(master=window)
+        frame.pack(fill="both", expand=True)
+
+        pt = Table(frame, showtoolbar=True, showstatusbar=True)
+        pt.show()
+
+        pt.model.df = data

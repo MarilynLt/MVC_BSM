@@ -1,27 +1,36 @@
 from random import randrange
-import numpy as np
-from scipy.stats import norm
+
 import bs4 as bs
+import numpy as np
 import pandas as pd
 import requests
 import yfinance as yf
+from scipy.stats import norm
 
 
 class Options:
     """
-       Valuation of options in Black-Scholes-Merton Model (include dividend)
-       Attributes
-       ==========
-       strike: strike price
-       spot: initial stock/index level
-       t: time to maturity (in year fractions)
-       r: constant risk-free short rate, assume flat term structure
-       q: yield of the dividend
-       sigma: volatility factor in diffusion term
+    Valuation of options in Black-Scholes-Merton Model (include dividend)
+    Attributes
+    ==========
+    strike: strike price
+    spot: initial stock/index level
+    t: time to maturity (in year fractions)
+    r: constant risk-free short rate, assume flat term structure
+    q: yield of the dividend
+    sigma: volatility factor in diffusion term
 
     """
 
-    def __init__(self, strike: float, spot: float, t: float, sigma: float, r: float = 0.05, q: float = 0.04):
+    def __init__(
+        self,
+        strike: float,
+        spot: float,
+        t: float,
+        sigma: float,
+        r: float = 0.05,
+        q: float = 0.04,
+    ):
         self.strike = strike
         self.spot = spot
         self.r = r
@@ -38,11 +47,13 @@ class Options:
         return norm.cdf(x)
 
     def d1(self) -> float:
-        return (np.log(self.spot / self.strike) + (self.r - self.q + 0.5 * self.sigma ** 2) * self.t) / (
-                self.sigma * np.sqrt(self.t))
+        return (
+            np.log(self.spot / self.strike)
+            + (self.r - self.q + 0.5 * self.sigma**2) * self.t
+        ) / (self.sigma * np.sqrt(self.t))
 
     def d2(self) -> float:
-        return - (self.sigma * np.sqrt(self.t)) + self._d1
+        return -(self.sigma * np.sqrt(self.t)) + self._d1
 
     def bsm(self, option_type: str) -> float:
         """
@@ -50,17 +61,21 @@ class Options:
         :return: price of the put or call
         """
         try:
-            if option_type == 'CALL':
-                call = self.spot * np.exp(-self.q * self.t) * self.n(self._d1) - self.strike * np.exp(
-                    -self.r * self.t) * self.n(self._d2)
+            if option_type == "CALL":
+                call = self.spot * np.exp(-self.q * self.t) * self.n(
+                    self._d1
+                ) - self.strike * np.exp(-self.r * self.t) * self.n(self._d2)
                 return call.round(3)
-            elif option_type == 'PUT':
-                put = self.strike * np.exp(- self.r * self.t) * self.n(-self._d2) - self.spot * np.exp(
-                    - self.q * self.t) * self.n(-self._d1)
+            elif option_type == "PUT":
+                put = self.strike * np.exp(-self.r * self.t) * self.n(
+                    -self._d2
+                ) - self.spot * np.exp(-self.q * self.t) * self.n(-self._d1)
                 return put.round(3)
         except Exception as e:
-            print(f"{e} \n"
-                  f"Please enter the option type in string. It should be either Call or Put")
+            print(
+                f"{e} \n"
+                f"Please enter the option type in string. It should be either Call or Put"
+            )
 
     def delta(self, option_type: str) -> float:
         """
@@ -69,21 +84,29 @@ class Options:
         :return: delta of the option
         """
         try:
-            if option_type == 'CALL':
+            if option_type == "CALL":
                 delta = np.exp(-self.q * self.t) * self.n(self._d1)
-            elif option_type == 'PUT':
+            elif option_type == "PUT":
                 delta = np.exp(-self.q * self.t) * (self.n(self._d1) - 1)
             return delta.round(4)
         except Exception as e:
-            print(f"{e} \n"
-                  f"Option type missing, please enter the option type. It should be a string")
+            print(
+                f"{e} \n"
+                f"Option type missing, please enter the option type. It should be a string"
+            )
 
     def gamma(self) -> float:
         """
         Gamma measure the change on delta when the stock price change (convexity)
         :return: gama of the option
         """
-        gamma = np.exp(-self.q * self.t) * norm.pdf(self._d1) / self.spot * self.sigma * np.sqrt(self.t)
+        gamma = (
+            np.exp(-self.q * self.t)
+            * norm.pdf(self._d1)
+            / self.spot
+            * self.sigma
+            * np.sqrt(self.t)
+        )
         return gamma.round(4)
 
     def vega(self) -> float:
@@ -91,7 +114,13 @@ class Options:
         Vega measures the change in the option price per percentage point change in the volatility
         :return: vega of the option
         """
-        vega = self.spot * np.exp(-self.q * self.t) * np.sqrt(self.t) * norm.pdf(self._d1) / 100
+        vega = (
+            self.spot
+            * np.exp(-self.q * self.t)
+            * np.sqrt(self.t)
+            * norm.pdf(self._d1)
+            / 100
+        )
         return vega.round(4)
 
     def theta(self, option_type: str) -> float:
@@ -100,18 +129,34 @@ class Options:
         :return: theta of the option
         """
         try:
-            if option_type == 'CALL':
-                theta = (self.q * self.spot * np.exp(-self.q * self.t) * self.n(
-                    self._d1) - self.r * self.strike * np.exp(-self.r * self.t) * self.n(self._d2) - norm.pdf(
-                    self._d1) * self.spot * self.sigma * np.exp(-self.q * self.t) / 2 * np.sqrt(self.t)) / 365
-            elif option_type == 'PUT':
-                theta = (self.r * self.strike * np.exp(-self.r * self.t) * self.n(
-                    -self._d2) - self.q * self.spot * np.exp(-self.q * self.t) * self.n(-self._d1) - norm.pdf(
-                    self._d1) * self.spot * self.sigma * np.exp(-self.q * self.t) / 2 * np.sqrt(self.t)) / 365
+            if option_type == "CALL":
+                theta = (
+                    self.q * self.spot * np.exp(-self.q * self.t) * self.n(self._d1)
+                    - self.r * self.strike * np.exp(-self.r * self.t) * self.n(self._d2)
+                    - norm.pdf(self._d1)
+                    * self.spot
+                    * self.sigma
+                    * np.exp(-self.q * self.t)
+                    / 2
+                    * np.sqrt(self.t)
+                ) / 365
+            elif option_type == "PUT":
+                theta = (
+                    self.r * self.strike * np.exp(-self.r * self.t) * self.n(-self._d2)
+                    - self.q * self.spot * np.exp(-self.q * self.t) * self.n(-self._d1)
+                    - norm.pdf(self._d1)
+                    * self.spot
+                    * self.sigma
+                    * np.exp(-self.q * self.t)
+                    / 2
+                    * np.sqrt(self.t)
+                ) / 365
             return theta.round(4)
         except Exception as e:
-            print(f"{e} \n"
-                  f"Option type missing, please enter the option type. It should be a string")
+            print(
+                f"{e} \n"
+                f"Option type missing, please enter the option type. It should be a string"
+            )
 
     def intrinsic_value(self, option_type: str) -> list:
         """
@@ -120,12 +165,12 @@ class Options:
         :returns: intrinsic value and status
         """
         value = self.strike - self.spot
-        if (option_type == 'CALL' and value < 0) | (option_type == 'PUT' and value > 0):
-            status = 'In the Money'
+        if (option_type == "CALL" and value < 0) | (option_type == "PUT" and value > 0):
+            status = "In the Money"
         elif value == 0:
-            status = 'At the Money'
+            status = "At the Money"
         else:
-            status = 'Out of the Money'
+            status = "Out of the Money"
 
         return [status, round(value, 2)]
 
@@ -137,23 +182,25 @@ class Options:
         """
         # get the ticker from wikipedia ETF S&P 100 page
         r = requests.get("https://en.wikipedia.org/wiki/S%26P_100#Components")
-        soup = bs.BeautifulSoup(r.text, 'lxml')
-        table = soup.find('table', {'class': 'wikitable', 'id': 'constituents'})
+        soup = bs.BeautifulSoup(r.text, "lxml")
+        table = soup.find("table", {"class": "wikitable", "id": "constituents"})
         tickers = []
 
-        for i in table.findAll('tr')[1:]:
-            for x in i.findAll('td'):
+        for i in table.findAll("tr")[1:]:
+            for x in i.findAll("td"):
                 ticker = x.get_text()
                 tickers.append(ticker)
                 break
 
-        tickers = [i.replace('\n', '') for i in tickers]
+        tickers = [i.replace("\n", "") for i in tickers]
 
         # get the spot of each stocks from yahoo finance
-        spots = (yf.download(tickers, interval="1m")['Adj Close'].iloc[-1, :]).reset_index()
+        spots = (
+            yf.download(tickers, interval="1m")["Adj Close"].iloc[-1, :]
+        ).reset_index()
         while spots.isnull().sum().sum() >= 5:
-            print(f'{spots.isnull().sum().sum()} missing values')
-            spots = (yf.download(tickers)['Adj Close'].iloc[-1, :]).reset_index()
+            print(f"{spots.isnull().sum().sum()} missing values")
+            spots = (yf.download(tickers)["Adj Close"].iloc[-1, :]).reset_index()
         stock_price = list(spots.dropna().itertuples(index=False, name=None))
 
         return stock_price
@@ -165,7 +212,7 @@ class Options:
         :param ticker_list: list of stock ticker
         :return: dataframe with stocks and spots
         """
-        spot = yf.download(ticker_list)['Adj Close'].iloc[-1]
+        spot = yf.download(ticker_list)["Adj Close"].iloc[-1]
         return spot.round(2)
 
     @staticmethod
@@ -183,21 +230,27 @@ class Options:
             except ValueError:
                 continue
 
-            for option_type in ['calls', 'puts']:
+            for option_type in ["calls", "puts"]:
                 opt = getattr(yf.Ticker(str(t)).option_chain(exp), option_type)
                 for row in opt.itertuples():
-                    type_op = 'call' if option_type == 'calls' else 'put'
-                    option_data.append({
-                        'Ticker': t,
-                        'Spot': s,
-                        'Maturity': exp,
-                        'Type': type_op,
-                        'Contract Symbol': row.contractSymbol,
-                        'Strike': row.strike,
-                        'Volatility': row.impliedVolatility,
-                        'Volume': row.volume,
-                        'Currency': row.currency
-                    })
+                    type_op = "call" if option_type == "calls" else "put"
+                    option_data.append(
+                        {
+                            "Ticker": t,
+                            "Spot": s,
+                            "Maturity": exp,
+                            "Type": type_op,
+                            "Contract Symbol": row.contractSymbol,
+                            "Strike": row.strike,
+                            "Volatility": row.impliedVolatility,
+                            "Volume": row.volume,
+                            "Currency": row.currency,
+                        }
+                    )
                     break
 
         return pd.DataFrame(option_data)
+
+    @staticmethod
+    def generate_excel(data: pd.DataFrame):
+        data.to_excel("BSM_portfolio.xlsx", sheet_name="Portfolio", index=False)
