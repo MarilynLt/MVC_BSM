@@ -1,3 +1,4 @@
+import logging
 from random import randrange
 
 import bs4 as bs
@@ -6,6 +7,8 @@ import pandas as pd
 import requests
 import yfinance as yf
 from scipy.stats import norm
+
+logger = logging.getLogger(__name__)
 
 
 class Options:
@@ -180,6 +183,9 @@ class Options:
         get sp100 stock ticker from wikipedia
         :return: list of stocks ticker
         """
+
+        # logger.log(level=logging.DEBUG)
+
         # get the ticker from wikipedia ETF S&P 100 page
         r = requests.get("https://en.wikipedia.org/wiki/S%26P_100#Components")
         soup = bs.BeautifulSoup(r.text, "lxml")

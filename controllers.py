@@ -1,5 +1,8 @@
+import logging
 import tkinter as tk
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class MinorController:
@@ -32,10 +35,12 @@ class MinorController:
                     - datetime.now()
                 ).days / 365
             except Exception as e:
+                logger.error(e.args)
                 print(e.args)
                 self.view.error_msg("The maturity should be in DD/MM/YYYY")
             volatility = float(self.view.ent_vol.get())
         except Exception as e:
+            logger.error(e.args)
             print(e.args)
             self.view.error_msg("Attribute missing, please check your input")
 
@@ -75,9 +80,13 @@ class MinorController:
             self.view.lbl_status.grid_forget()
             self.view.lbl_val.grid_forget()
         except Exception as e:
+            logger.error(e.args)
             print(e.args)
             pass
 
+        logger.info(
+            f"greeks and price generated \n price:{price}, status: {status}, delta:{delta}"
+        )
         self.view.update_status(status, value)
 
     def fetch_spot(self):
@@ -154,7 +163,9 @@ class MajorController:
             df["Gamma"].loc[i] = op.gamma()
             df["Vega"].loc[i] = op.vega()
 
-        # generate an excel with the data
+        logger.info("greeks générated")
+
+        # generate an Excel with the data
         if self.view.var2.get():
             self.model.generate_excel(data=df)
             self.view.info_msg("Excel generated")
