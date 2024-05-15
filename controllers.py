@@ -2,6 +2,8 @@ import logging
 import tkinter as tk
 from datetime import datetime
 
+import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,23 +28,26 @@ class MinorController:
         try:
             op_type = str(self.view.ent_type.get().upper())
             if op_type == "":
-                self.view.error_msg("Please enter Option type")
+                self.view.error_msg(config.param["controller"]["error_type"])
             strike_price = float(self.view.ent_strike.get())
             spot_price = float(self.view.ent_spot.get())
             try:
                 maturity = (
-                    datetime.strptime(self.view.ent_maturity.get(), "%d/%m/%Y")
+                    datetime.strptime(
+                        self.view.ent_maturity.get(),
+                        "%d/%m/%Y",
+                    )
                     - datetime.now()
                 ).days / 365
             except Exception as e:
                 logger.error(e.args)
                 print(e.args)
-                self.view.error_msg("The maturity should be in DD/MM/YYYY")
+                self.view.error_msg(config.param["controller"]["error_mat"])
             volatility = float(self.view.ent_vol.get())
         except Exception as e:
             logger.error(e.args)
             print(e.args)
-            self.view.error_msg("Attribute missing, please check your input")
+            self.view.error_msg(config.param["controller"]["error_msg"])
 
         try:
             rf = float(self.view.ent_rf.get()) / 100
@@ -106,7 +111,7 @@ class MinorController:
                 self.view.ent_spot.insert(0, str(spot))
             except Exception as e:
                 print(e.args)
-                self.view.error_msg("You are using an incorrect  TICKER, please check")
+                self.view.error_msg(config.param["controller"]["error_ticker"])
         else:
             self.view.chk_ticker_ent.delete(0, tk.END)
             self.view.ent_spot.delete(0, tk.END)

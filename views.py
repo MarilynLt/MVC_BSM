@@ -8,6 +8,8 @@ import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 from pandastable import Table
 
+import config
+
 
 class Root(tk.Tk):
     """
@@ -17,8 +19,8 @@ class Root(tk.Tk):
     def __init__(self):
         # main setup
         super().__init__()
-        self.title("Black-Scholes-Merton pricer")
-        self.iconbitmap("logo.ico")
+        self.title(config.param["view"]["title"])
+        self.iconbitmap(config.param["view"]["logo"])
         self.geometry("525x505")
         self.minsize(525, 505)
 
@@ -32,7 +34,7 @@ class Window(tk.Toplevel):
         super().__init__(parent)
         self.focus_force()  # put the focus on the new window
         self.title("BSM-Portfolio")
-        self.iconbitmap("logo.ico")
+        self.iconbitmap(config.param["view"]["logo"])
 
 
 class Minor(ttk.Frame):
@@ -51,7 +53,7 @@ class Minor(ttk.Frame):
 
         # Widgets
 
-        self.label_title = ttk.Label(self, text="BSM Model on selected option")
+        self.label_title = ttk.Label(self, text=config.param["view"]["minor_title"])
         self.label_title.grid(row=0, column=1, padx=5, pady=25, columnspan=2)
 
         self.lbl_type = ttk.Label(self, text="Type")
@@ -144,7 +146,11 @@ class Minor(ttk.Frame):
         self.lbl_val = ttk.Label(
             self,
             text=f"Intrinsic value: {value}",
-            foreground=("red" if len(status) > 12 else "green"),
+            foreground=(
+                config.param["view"]["foreground_2"]
+                if len(status) > 12
+                else config.param["view"]["foreground_1"]
+            ),
         )
         self.lbl_status.grid(row=5, column=2, columnspan=2, pady=2)
         self.lbl_val.grid(row=4, column=2, columnspan=2, pady=2)
@@ -161,7 +167,7 @@ class Major(ttk.Frame):
         self.grid(row=0, column=1, sticky="nsew")
 
         # Widgets
-        self.lbl_title = ttk.Label(self, text="BSM model on random Portfolio")
+        self.lbl_title = ttk.Label(self, text=config.param["view"]["major_title"])
         self.lbl_title.grid(row=0, column=1, padx=5, pady=25, columnspan=3)
 
         self.btn_run = ttk.Button(self, text="Run")
@@ -188,8 +194,8 @@ class Major(ttk.Frame):
 
     @staticmethod
     def option_chart(model):
-        with PdfPages("Options_graph.pdf") as pdf:
-            with plt.style.context("seaborn-v0_8-darkgrid"):
+        with PdfPages(config.param["chart"]["pdf"]) as pdf:
+            with plt.style.context(config.param["chart"]["style"]):
                 spot = np.arange(1, 150)
 
                 # Greek plot
@@ -257,8 +263,15 @@ class Major(ttk.Frame):
                 )
                 axes[4].set_xlabel("Stock Price")
                 axes[4].set_ylabel("Option price")
-                axes[4].plot(spot, call_val, color="green", label="Call")
-                axes[4].plot(spot, put_val, color="blue", label="Put")
+                axes[4].plot(
+                    spot,
+                    call_val,
+                    color=config.param["chart"]["call_color"],
+                    label="Call",
+                )
+                axes[4].plot(
+                    spot, put_val, color=config.param["chart"]["put_color"], label="Put"
+                )
                 axes[4].legend()
 
             pdf.savefig()

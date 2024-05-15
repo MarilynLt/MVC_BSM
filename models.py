@@ -8,6 +8,8 @@ import requests
 import yfinance as yf
 from scipy.stats import norm
 
+import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,8 +33,8 @@ class Options:
         spot: float,
         t: float,
         sigma: float,
-        r: float = 0.05,
-        q: float = 0.04,
+        r: float = config.param["model"]["rf"],
+        q: float = config.param["model"]["div"],
     ):
         self.strike = strike
         self.spot = spot
@@ -187,7 +189,7 @@ class Options:
         # logger.log(level=logging.DEBUG)
 
         # get the ticker from wikipedia ETF S&P 100 page
-        r = requests.get("https://en.wikipedia.org/wiki/S%26P_100#Components")
+        r = requests.get(config.param["model"]["link"])
         soup = bs.BeautifulSoup(r.text, "lxml")
         table = soup.find("table", {"class": "wikitable", "id": "constituents"})
         tickers = []
@@ -259,4 +261,8 @@ class Options:
 
     @staticmethod
     def generate_excel(data: pd.DataFrame):
-        data.to_excel("BSM_portfolio.xlsx", sheet_name="Portfolio", index=False)
+        data.to_excel(
+            excel_writer=config.param["chart"]["file"],
+            sheet_name=config.param["chart"]["sheet_name"],
+            index=False,
+        )

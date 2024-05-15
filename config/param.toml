@@ -9,12 +9,11 @@ title = "Black-Scholes-Merton pricer"
 logo = "logo.ico"
 major_title = "BSM model on random Portfolio"
 minor_title = "BSM Model on selected option"
-forground_1 = "green"
+foreground_1 = "green"
 foreground_2 = "red"
 
 
 [controller]
-date_fmt = "%d/%m/%Y"
 error_type = "Please enter Option type"
 error_mat = "The maturity should be in DD/MM/YYYY"
 error_msg = "Attribute missing, please check your input"
